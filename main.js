@@ -9,6 +9,14 @@ let paused = false;
 let repairStartTime = null;
 let repairTime = 0;
 let repairTimerInterval = null;
+let startSchedule = null;
+let stopSchedule = null;
+let scheduled = false;
+
+const GITHUB_API_URL = 'https://api.github.com';
+const GITHUB_REPO = 'ahmedsayed7702/plastic';
+const GITHUB_FILE_PATH = 'data.json';
+const GITHUB_TOKEN = 'YOUR_GITHUB_TOKEN'; // Replace with your GitHub token
 
 function showError(message) {
     const errorElement = document.getElementById("error");
@@ -25,7 +33,7 @@ function clearError() {
 function setOperationName() {
     operationName = document.getElementById("operationNameInput").value.trim();
     if (operationName) {
-        const buttons = document.querySelectorAll("#startButton, #stopButton, #pauseButton, #continueButton");
+        const buttons = document.querySelectorAll("#startButton, #stopButton, #pauseButton, #continueButton, #scheduleButton");
         buttons.forEach(button => button.style.display = "inline-block");
         document.getElementById("setOperationNameButton").style.display = "none";
         document.getElementById("operationNameInput").disabled = true;
@@ -72,14 +80,17 @@ function stopMachine() {
                 stopTime: stopTime.toLocaleString(),
                 elapsedTime: elapsedTime,
                 copiesProduced: copiesProduced,
-                repairTime: repairTime
+                repairTime: repairTime,
+                scheduled: scheduled
             });
             localStorage.setItem('machineLogs', JSON.stringify(machineLogs));
             updateAdminPage();
             updateOperationsPage();
+            uploadDataToGitHub(machineLogs);
             clearError();
             console.log("Machine stopped");
             document.getElementById("nicePartMessage").style.display = "block"; // Show the nice part message
+            document.getElementById("awesomeGif").style.display = "block"; // Show the awesome gif
         }
     } catch (error) {
         showError("Nice part, check the details.");
@@ -201,6 +212,7 @@ function updateAdminPage() {
             <th>Elapsed Time (seconds)</th>
             <th>Copies Produced</th>
             <th>Repair Time (seconds)</th>
+            <th>Scheduled</th>
         </tr>
     `;
     machineLogs.forEach(log => {
@@ -212,6 +224,7 @@ function updateAdminPage() {
             <td>${log.elapsedTime}</td>
             <td>${log.copiesProduced}</td>
             <td>${log.repairTime}</td>
+            <td>${log.scheduled ? 'Yes' : 'No'}</td>
         `;
         adminTable.appendChild(row);
     });
@@ -222,8 +235,86 @@ function updateOperationsPage() {
     operationList.innerHTML = '';
     machineLogs.forEach(log => {
         const li = document.createElement("li");
-        li.textContent = `${log.operationName} - ${log.startTime} - ${log.stopTime} - Copies: ${log.copiesProduced} - Repair Time: ${log.repairTime} seconds`;
+        li.textContent = `${log.operationName} - ${log.startTime} - ${log.stopTime} - Copies: ${log.copiesProduced} - Repair Time: ${log.repairTime} seconds - Scheduled: ${log.scheduled ? 'Yes' : 'No'}`;
         operationList.appendChild(li);
+    });
+}
+
+async function uploadDataToGitHub(data) {
+    try {
+        const response = await fetch(`${GITHUB_API_URL}/repos/${GITHUB_REPO}/contents/${GITHUB_FILE_PATH}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `token ${GITHUB_TOKEN}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: 'Update data.json',
+                content: btoa(JSON.stringify(data)),
+                sha: await getFileSha()
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to upload data to GitHub');
+        }
+
+        console.log('Data uploaded to GitHub');
+    } catch (error) {
+        console.error('Error uploading data to GitHub:', error);
+    }
+}
+
+async function getFileSha() {
+    try {
+        const response = await fetch(`${GITHUB_API_URL}/repos/${GITHUB_REPO}/contents/${GITHUB_FILE_PATH}`, {
+            headers: {
+                'Authorization': `token ${GITHUB_TOKEN}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to get file SHA');
+        }
+
+        const data = await response.json();
+        return data.sha;
+    } catch (error) {
+        console.error('Error getting file SHA:', error);
+        return null;
+    }
+}
+
+function scheduleStartStop() {
+    const startTimeInput = document.getElementById("startTimeInput").value;
+    const stopTimeInput = document.getElementById("stopTimeInput").value;
+
+    if (startTimeInput) {
+        const startDateTime = new Date(startTimeInput);
+        const now = new Date();
+        const startDelay = startDateTime - now;
+        if (startDelay > 0) {
+            startSchedule = setTimeout(startMachine, startDelay);
+            scheduled = true;
+            console.log(`Machine scheduled to start at ${startDateTime}`);
+        }
+    }
+
+    if (stopTimeInput) {
+        const stopDateTime = new Date(stopTimeInput);
+        const now = new Date();
+        const stopDelay = stopDateTime - now;
+        if (stopDelay > 0) {
+            stopSchedule = setTimeout(stopMachine, stopDelay);
+            scheduled = true;
+            console.log(`Machine scheduled to stop at ${stopDateTime}`);
+        }
+    }
+}
+
+function autoSaveChanges() {
+    window.addEventListener('beforeunload', () => {
+        uploadDataToGitHub(machineLogs);
     });
 }
 
@@ -231,6 +322,7 @@ document.addEventListener("DOMContentLoaded", () => {
     simulateTemperatureData();
     updateAdminPage();
     updateOperationsPage();
+    autoSaveChanges();
 });
 
 document.getElementById("setOperationNameButton").addEventListener("click", setOperationName);
@@ -239,3 +331,4 @@ document.getElementById("stopButton").addEventListener("click", stopMachine);
 document.getElementById("pauseButton").addEventListener("click", pauseMachine);
 document.getElementById("continueButton").addEventListener("click", continueMachine);
 document.getElementById("copiesInput").addEventListener("change", updateCopiesToProduce);
+document.getElementById("scheduleButton").addEventListener("click", scheduleStartStop);

@@ -59,8 +59,18 @@
             <p id="copiesLeft">You can produce 30 more copies before needing to add more plastic.</p>
             <p id="repairTime" style="display: none;">Repair Time: <span id="repairTimeValue">0</span> seconds</p>
         </div>
+        <div>
+            <label for="startTimeInput">Start Time:</label>
+            <input type="datetime-local" id="startTimeInput">
+            <label for="stopTimeInput">Stop Time:</label>
+            <input type="datetime-local" id="stopTimeInput">
+            <button id="scheduleButton">Schedule</button>
+        </div>
         <div id="nicePartMessage" style="display: none; color: yellow; font-size: 1.2em; margin-top: 20px;">
             Nice part, check the details.
+        </div>
+        <div id="awesomeGif" style="display: none; text-align: center; margin-top: 20px;">
+            <img src="https://media.tenor.com/VkkclesmiaMAAAAi/awesome-awesome-gifs.gif" alt="Awesome">
         </div>
         <div id="error" style="display: none;"></div>
         <div id="fireworks" class="fireworks"></div>
